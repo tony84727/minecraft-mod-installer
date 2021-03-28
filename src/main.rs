@@ -4,7 +4,7 @@ use std::{fs, io};
 use bytes::Buf;
 
 use crate::config::ServerSetupConfig;
-use crate::curse::manifest::{File, ModInstallError};
+use crate::curse::manifest::{File, Manifest, ModInstallError};
 use crate::curse::CurseModpackArchive;
 use futures::{Stream, StreamExt};
 use std::iter::FromIterator;
@@ -44,6 +44,11 @@ impl<'c> ServerInstaller<'c> {
         let manifest = archive.get_manifest().map_err(|err| {
             InstallError::FetchModPackError(FetchModPackError::ManifestError(err))
         })?;
+        self.install_mods(&manifest);
+        Ok(())
+    }
+
+    async fn install_mods(&self, manifest: &Manifest) -> Result<(), ModInstallError> {
         let install_list = InstallList {
             files: &manifest.files,
             ignored_project_ids: HashSet::from_iter(
@@ -61,7 +66,7 @@ impl<'c> ServerInstaller<'c> {
             .map_err(|err| InstallError::ModInstallError(err))?;
         while let Some(result) = installation.next().await {
             if let Err(err) = result {
-                return Err(InstallError::ModInstallError(err));
+                return Err(err);
             }
         }
         Ok(())
