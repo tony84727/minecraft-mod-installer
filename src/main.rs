@@ -5,7 +5,7 @@ use bytes::Buf;
 
 use crate::config::ServerSetupConfig;
 use crate::curse::manifest::{File, Manifest, ModInstallError};
-use crate::curse::CurseModpackArchive;
+use crate::curse::{CurseModpackArchive, DirectoryInstallError};
 use futures::{Stream, StreamExt};
 use std::iter::FromIterator;
 use std::path::PathBuf;
@@ -24,9 +24,15 @@ enum FetchModPackError {
     ManifestError(curse::ManifestError),
 }
 
+enum ApplyOverrideError {
+    IO(io::Error),
+    ZIP(zip::result::ZipError),
+}
+
 enum InstallError {
     FetchModPackError(FetchModPackError),
     ModInstallError(ModInstallError),
+    ApplyOverrideError(ApplyOverrideError),
 }
 
 struct ServerInstaller<'c> {
@@ -47,6 +53,14 @@ impl<'c> ServerInstaller<'c> {
         self.install_mods(&manifest)
             .await
             .map_err(|err| InstallError::ModInstallError(err))?;
+        archive
+            .extract_and_install_directory(".", &manifest.overrides)
+            .await
+            .map_err(|err| match err {
+                DirectoryInstallError::IO(err) => ApplyOverrideError::IO(err),
+                DirectoryInstallError::ZIP(err) => ApplyOverrideError::ZIP(err),
+            })
+            .map_err(|err| InstallError::ApplyOverrideError(err))?;
         Ok(())
     }
 
@@ -155,6 +169,14 @@ async fn main() {
                 }
                 ModInstallError::DownloadError(err) => {
                     println!("download error: {:?}", err)
+                }
+            },
+            InstallError::ApplyOverrideError(err) => match err {
+                ApplyOverrideError::IO(err) => {
+                    println!("apply overrides: io error: {}", err)
+                }
+                ApplyOverrideError::ZIP(err) => {
+                    println!("apply overrides: zip error: {:?}", err)
                 }
             },
         },

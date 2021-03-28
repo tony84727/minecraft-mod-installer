@@ -16,3 +16,4 @@ bytes = "1.0.1"
 tokio = { version = "1", features = ["full"] }
 url = "2.2.1"
 futures = "0.3.13"
+regex = "1.4.5"

@@ -74,6 +74,7 @@ pub struct Minecraft {
 pub struct Manifest {
     pub minecraft: Minecraft,
     pub files: Vec<File>,
+    pub overrides: String,
 }
 
 #[cfg(test)]
