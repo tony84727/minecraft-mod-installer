@@ -6,6 +6,7 @@ use bytes::Buf;
 use crate::config::ServerSetupConfig;
 use crate::curse::manifest::{File, Manifest, ModInstallError};
 use crate::curse::CurseModpackArchive;
+use crate::download::DownloadError;
 use futures::{Stream, StreamExt};
 use std::iter::FromIterator;
 use std::path::PathBuf;
@@ -60,10 +61,7 @@ impl<'c> ServerInstaller<'c> {
                     .into_iter(),
             ),
         };
-        let mut installation = install_list
-            .install_all("mods")
-            .await
-            .map_err(|err| InstallError::ModInstallError(err))?;
+        let mut installation = install_list.install_all("mods").await?;
         while let Some(result) = installation.next().await {
             if let Err(err) = result {
                 return Err(err);
@@ -114,6 +112,52 @@ impl InstallList<'_> {
             .into_iter()
             .filter(|file| !self.ignored_project_ids.contains(&file.project_id))
             .collect()
+    }
+}
+
+enum ForgeInstallerExecError {
+    IO(io::Error),
+    FailedExitCode(std::process::ExitStatus),
+}
+
+enum ForgeInstallError {
+    Download(DownloadError),
+    Installer(ForgeInstallerExecError),
+}
+
+struct ForgeInstaller<'a> {
+    version: &'a str,
+}
+
+impl ForgeInstaller<'_> {
+    fn download_link(&self) -> String {
+        format!("https://files.minecraftforge.net/maven/net/minecraftforge/forge/{}/forge-{0}-installer.jar", self.version)
+    }
+
+    fn installer_filename(&self) -> String {
+        format!("forge-{}-installer.jar", self.version)
+    }
+
+    async fn execute_installer(&self) -> Result<(), ForgeInstallError> {
+        let exit_status = std::process::Command::new("java")
+            .args(&["-jar", self.installer_filename().as_str()])
+            .status()
+            .map_err(|err| ForgeInstallError::Installer(ForgeInstallerExecError::IO(err)))?;
+        if !exit_status.success() {
+            return Err(ForgeInstallError::Installer(
+                ForgeInstallerExecError::FailedExitCode(exit_status),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn download_installer(&self) -> Result<(), ForgeInstallError> {
+        download::download(
+            self.download_link().as_str(),
+            self.installer_filename().as_str(),
+        )
+        .await
+        .map_err(|err| ForgeInstallError::Download(err))
     }
 }
 
