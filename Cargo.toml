@@ -1,5 +1,5 @@
 [package]
-name = "modded-server-installer"
+name = "minecraft-mod-installer"
 version = "0.1.0"
 authors = ["Tony Duan <tony84727@gmail.com>"]
 edition = "2018"
