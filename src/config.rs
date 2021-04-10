@@ -12,8 +12,6 @@ pub struct Install {
     pub modpack_url: String,
     #[serde(rename = "formatSpecific")]
     pub format_specific: FormatSpecific,
-    #[serde(rename = "installForge")]
-    pub install_forge: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -56,7 +54,6 @@ mod tests {
                 format_specific: FormatSpecific {
                     ignore_project: vec![263420, 317780, 232131, 231275],
                 },
-                install_forge: "yes".to_string(),
             },
         };
         assert_eq!(expected_config, config);
